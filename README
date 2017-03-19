@@ -1,0 +1,92 @@
+Protocoale de comunicatii, seria CC
+Tema2: Sistem de Backup si Partajare a Fisierelor
+
+Nume student: Sandu Cristian-Andrei
+Grupa: 326CC
+
+Tema uploadata pe: 4 Mai 2016
+
+Am implementat toate cerintele temei, detaliate mai jos.
+
+
+###############################################################################
+
+Detalii de implementare:
+
+
+CLIENT & SERVER:
+    - Interactiunea este neblocanta, am folosit socketi TCP si apeluri ale lui
+    select pentru a citi de la tastatura, client, server sau din fisierele
+    deschise cu open.(multiplexare)
+    - Pentru fiecare client, folosesc un singur socket pentru comunicare.
+    - Clientii comunica cu serverul pe un singur socket.
+    - Pachetele trimise au dimensiune de maxim 4096 bytes, si contin, pe langa
+    payload(array de unsigned char) si un camp pentru tipul pachetului(descrise
+    si in utils.h) si unul pentru lungimea payload-ului.
+    - Protocolul pentru transmiterea fisierelor este:
+        - clientul trimite un pachet care contine comanda de upload/download
+        - serverul raspunde cu un pachet INIT_UPLOAD1/INIT_DOWNLOAD1, in care
+        trimite clientului file descriptor-ul asociat fisierului proaspat
+        deschis(pentru scriere / citire)
+        - clientul trimite un pachet INIT_UPLOAD2/INIT_DOWNLOAD2, care contine
+        file descriptor-ul fisierului deschis de client
+        - fisierele deschise vor fi adaugate in read_fds
+        - se va transfera intreg continutul fisierelor, (cl -> sv pt upload,
+        respectiv sv -> cl pt download)
+        - se trimite un pachet CLOSE_TRANSFER, (cl -> sv pt download. respectiv
+        sv -> cl pt upload) pentru a anunta server-ul, respectiv client-ul, de
+        incheierea transferului
+
+CLIENT:
+    - corectitudinea sintactica a comenzilor o fac in client(nr de argumente,
+    numele comenzii, etc.), la fel si acele argumente care sunt specificate in
+    enunt
+    - pentru fiecare file descriptor deschis(din multimea returnata returnata
+    de select()), execut diferite actiuni, in functie de tipul lui (socket-ul
+    serverului, fisier deschis pentru upload sau stdin)
+    - pentru stdin:
+        - verific corectitudinea algoritmilor
+        - pun in payload exact linia citita de la stdin
+        - trimit mesajul server-ului.
+    - pentru mesaje de la server:
+        - le tratez diferit in functie de tipul lor
+        - am incercat sa pastrez in cod nume destul de sugestive
+    - pentru citire din fisier:
+        - pun in payload file descriptor-ul fisierului de trimis si umplu
+        restul payload-ului cu date din fisier(citite cu read)
+    - am retinut in mai multe map-uri starea fisierelor aflate in transfer,
+    fisierele de pe disc(din folder-ul in care a fost executat clientul) si
+    corespondentul fd_client <- fd_server;
+
+SERVER:
+    - la fel ca clientul, multiplexeaza intre socket-ul pe care asculta(noi
+    conexiuni), socketii clientilor(date de la clienti) si fisierele deschise
+    pentru download
+    - Pentru comenzi, le preia de la client, le parseaza si le executa
+    - Magia se intampla in functiile pentru executarea comenzilor, care trimit
+    raspunsuri clientului care a efectuat comanda.
+    - Transferul de fisiere este descris mai sus.
+    - La fel, am retinut mai multe map-uri cu informatii relevante:
+        - userii din sistem, fiecare cu lista lui de fisiere
+        - fisierele deschise pentru transfer
+        - maparea file_descriptor client -> file descriptor server(fiecare
+        client are propriul map)
+
+##############################################################################
+
+Probleme intalnite:
+
+- comunicarea este sigur neblocanta, dar uneori pare ca dureaza cam prea mult
+pentru raspunsul server-ului(posibil sa fie prae solicitat hdd-ul, habar n-am;
+cand am repornit laptop-ul si retestat, mergea fara probleme)
+
+##############################################################################
+
+TODO:
+- mult refactoring
+- scris mai multe functii ajutatoare pentru a crea calea completa, crearea
+mesajelor, etc.
+- schimbat toate tipurile in tipuri din stdint.h
+- sa pastrez mai bine anumite conventii(unsigned char*, char*, std::string...)
+
+- A fost foarte mult de munca pentru o tema care valoreaza doar 1p.
